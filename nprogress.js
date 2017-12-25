@@ -63,9 +63,14 @@
   NProgress.set = function(n) {
     var started = NProgress.isStarted();
 
+    // clamp(): 防止 n 超过能调的最大限度和最小限度 
     n = clamp(n, Settings.minimum, 1);
     NProgress.status = (n === 1 ? null : n);
-
+    
+    
+    // 如果进度条已经渲染在页面中，则 progress 得到的就是进度条元素
+    // 还没渲染，就用 template 创建一个进度条
+    // 进度条的不断运动就是考不断调用render()
     var progress = NProgress.render(!started),
         bar      = progress.querySelector(Settings.barSelector),
         speed    = Settings.speed,
@@ -75,9 +80,11 @@
 
     queue(function(next) {
       // Set positionUsing if it hasn't already been set
+      // positionUsing: translate3d || tranlate || margin
       if (Settings.positionUsing === '') Settings.positionUsing = NProgress.getPositioningCSS();
 
       // Add transition
+      // barPositionCSS返回一个CSS规则： 进度条以positionUsing 移动百分之几
       css(bar, barPositionCSS(n, speed, ease));
 
       if (n === 1) {
@@ -158,6 +165,7 @@
   NProgress.inc = function(amount) {
     var n = NProgress.status;
 
+    //如果进度是0，就让进度条开始走
     if (!n) {
       return NProgress.start();
     } else if(n > 1) {
@@ -230,7 +238,9 @@
     progress.id = 'nprogress';
     progress.innerHTML = Settings.template;
 
+        // 查找一个有属性是'[role="bar"]'的元素
     var bar      = progress.querySelector(Settings.barSelector),
+        // 有没有规定进度条从哪里开始？ 没有就从0开始，或者看NProgress已经走到哪
         perc     = fromStart ? '-100' : toBarPerc(NProgress.status || 0),
         parent   = document.querySelector(Settings.parent),
         spinner;
@@ -245,6 +255,7 @@
       spinner && removeElement(spinner);
     }
 
+    // 如果进度条的父元素不是body，就给他的父元素添加一个nprogress-custom-parent类
     if (parent != document.body) {
       addClass(parent, 'nprogress-custom-parent');
     }
@@ -275,7 +286,11 @@
   /**
    * Determine which positioning CSS rule to use.
    */
-
+  /*
+   * 根据浏览器的不同用不同的方法改变进度条进度的位置
+   * 首先通过检查document.body.style里有什么前缀的Transform，储存不同的浏览器前缀在vendorPrefix（这招666）
+   * 能使用3D效果的用3D效果，不行用translate，再不行用margin
+  */
   NProgress.getPositioningCSS = function() {
     // Sniff on document.body.style
     var bodyStyle = document.body.style;
@@ -313,6 +328,7 @@
    * percentage (`-100%..0%`).
    */
 
+  // x轴上负得越多，进度条越接近百分之一百，对应 n 越接近 1 ，越接近完成
   function toBarPerc(n) {
     return (-1 + n) * 100;
   }
@@ -362,6 +378,7 @@
   /**
    * (Internal) Applies css properties to an element, similar to the jQuery
    * css method.
+   * 类似jquery的css()
    *
    * While this helper does assist with vendor prefixed property names, it
    * does not perform any manipulation of values prior to setting styles.
@@ -377,6 +394,10 @@
       });
     }
 
+    // 对要添加的CSS样式进行处理，判断要添加的这个CSS样式是否需要添加前缀
+    // 如果document.body.style里有这个元素说明不用
+    // 没有就遍历前面定义的前缀数组，而且还有把属性的第一个字母大写，如translate写成Translate才能加前缀
+    // 返回要添加的那个属性
     function getVendorProp(name) {
       var style = document.body.style;
       if (name in style) return name;
@@ -397,6 +418,7 @@
       return cssProps[name] || (cssProps[name] = getVendorProp(name));
     }
 
+    //设置CSS属性
     function applyCss(element, prop, value) {
       prop = getStyleProp(prop);
       element.style[prop] = value;
@@ -463,6 +485,10 @@
    * The list is wrapped with a single space on each end to facilitate finding
    * matches within the list.
    */
+  
+  /*
+   * 得到一个由空格分隔的由元素的类名组成的列表
+  */
 
   function classList(element) {
     return (' ' + (element && element.className || '') + ' ').replace(/\s+/gi, ' ');
