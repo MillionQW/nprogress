@@ -70,7 +70,7 @@
     
     // 如果进度条已经渲染在页面中，则 progress 得到的就是进度条元素
     // 还没渲染，就用 template 创建一个进度条
-    // 进度条的不断运动就是考不断调用render()
+    // render()只会在初始时调用一次
     var progress = NProgress.render(!started),
         bar      = progress.querySelector(Settings.barSelector),
         speed    = Settings.speed,
@@ -78,6 +78,8 @@
 
     progress.offsetWidth; /* Repaint */
 
+    // 每进入一次set(), queue就被调用一次
+    // queue的作用就是让它的参数里面的这个函数执行
     queue(function(next) {
       // Set positionUsing if it hasn't already been set
       // positionUsing: translate3d || tranlate || margin
@@ -95,6 +97,7 @@
         });
         progress.offsetWidth; /* Repaint */
 
+        // 进度条淡出
         setTimeout(function() {
           css(progress, {
             transition: 'all ' + speed + 'ms linear',
@@ -102,6 +105,7 @@
           });
           setTimeout(function() {
             NProgress.remove();
+            // 为什么这里要执行next() ?
             next();
           }, speed);
         }, speed);
@@ -122,11 +126,14 @@
    * This is the same as setting the status to 0%, except that it doesn't go backwards.
    *
    *     NProgress.start();
-   *
+   * 
    */
   NProgress.start = function() {
     if (!NProgress.status) NProgress.set(0);
-
+  /*
+   * 找到了进度条可以一直走的原因
+   * 利用work()，定时器中判断NProgress是否已经完成进度，如果没有就再执行work()，不断递归调用。
+  */
     var work = function() {
       setTimeout(function() {
         if (!NProgress.status) return;
@@ -363,12 +370,16 @@
     var pending = [];
 
     function next() {
+      // 把推入数组的fn拿出来，执行
       var fn = pending.shift();
       if (fn) {
+        
+        // 传入的next是个闭包，保存了这里的next()
         fn(next);
       }
     }
 
+    //fn: 传入queue()的参数，把fn推入数组中
     return function(fn) {
       pending.push(fn);
       if (pending.length == 1) next();
